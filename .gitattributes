@@ -1,0 +1,2 @@
+data/ filter=lfs diff=lfs merge=lfs -text
+data_after_process/ filter=lfs diff=lfs merge=lfs -text
