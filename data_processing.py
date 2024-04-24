@@ -27,7 +27,7 @@ train, test = get_data(args)
 
 
 if __name__ == '__main__':
-    isTest = True
+    isTest = False
     if isTest:
         train_content, train_character = get_processing_data(train[:200], args, mode='train')
         test_content, test_character = get_processing_data(test[:100], args, mode='test')
@@ -37,15 +37,15 @@ if __name__ == '__main__':
         train_content, train_character = get_processing_data(train, args, mode='train')
         test_content, test_character = get_processing_data(test, args, mode='test')
 
-        train_content.to_csv(output_data_file + 'train_content_' + prompt + '.csv', \
-            columns=['id', 'content', 'character', 'love', 'joy', 'fright', 'anger', 'fear', 'sorrow'],
-            sep=',', index=False)
-        train_character.to_csv(output_data_file + 'train_character_' + prompt + '.csv', \
-            columns=['id', 'content', 'character', 'love', 'joy', 'fright', 'anger', 'fear', 'sorrow'],
-            sep=',', index=False)
-        test_content.to_csv(output_data_file + 'test_content_' + prompt + '.csv', \
-            columns=['id', 'content', 'character', 'love', 'joy', 'fright', 'anger', 'fear', 'sorrow'],
-            sep=',', index=False)
-        test_character.to_csv(output_data_file + 'test_character_' + prompt + '.csv', \
-            columns=['id', 'content', 'character', 'love', 'joy', 'fright', 'anger', 'fear', 'sorrow'],
-            sep=',', index=False)
+    train_content.to_csv(output_data_file + 'train_content_' + prompt + '.csv', \
+        columns=['id', 'content', 'character', 'love', 'joy', 'fright', 'anger', 'fear', 'sorrow'],
+        sep=',', index=False)
+    train_character.to_csv(output_data_file + 'train_character_' + prompt + '.csv', \
+        columns=['id', 'content', 'character', 'love', 'joy', 'fright', 'anger', 'fear', 'sorrow'],
+        sep=',', index=False)
+    test_content.to_csv(output_data_file + 'test_content_' + prompt + '.csv', \
+        columns=['id', 'content', 'character', 'love', 'joy', 'fright', 'anger', 'fear', 'sorrow'],
+        sep=',', index=False)
+    test_character.to_csv(output_data_file + 'test_character_' + prompt + '.csv', \
+        columns=['id', 'content', 'character', 'love', 'joy', 'fright', 'anger', 'fear', 'sorrow'],
+        sep=',', index=False)

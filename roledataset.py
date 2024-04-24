@@ -65,11 +65,12 @@ class RoleDataset(Dataset):
 
 
 # 创建dataloader
-def create_dataloader(dataset, args: Config, mode='train'):
+def create_dataloader(dataset, args: Config, sample, mode='train'):
+    # sourcery skip: boolean-if-exp-identity, lift-return-into-if, merge-duplicate-blocks, remove-unnecessary-cast
     shuffle = True if mode == 'train' else False
-    if mode == 'train':
-        data_loader = DataLoader(dataset, batch_size=args.model_args['batch_size'], shuffle=shuffle)
+    if sample:
+        data_loader = DataLoader(dataset, batch_size=args.model_args['batch_size'], num_workers=0, pin_memory=True, sampler=sample)
     else:
-        data_loader = DataLoader(dataset, batch_size=args.model_args['batch_size'], shuffle=shuffle)
+        data_loader = DataLoader(dataset, batch_size=args.model_args['batch_size'], shuffle=shuffle, num_workers=0, pin_memory=True)
     return data_loader
 

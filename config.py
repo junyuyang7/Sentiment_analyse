@@ -5,16 +5,16 @@ class Config:
     model_args: dict = {
         'num_labels': 6,
         'model_name': 'models/chinese-roberta-wwm-ext',
-        'epoch': 1,
+        'epoch': 2,
         'weight_decay': 0.005,
         'warmup_proportion': 0.0,
-        'batch_size': 1,
+        'batch_size': 32,
         'lr': 2e-5,
         'warm_up_ratio': 0,
         'max_len': 256,
         'token_max_len': 512,
-        'model_save_file': "checkpoint/",
-        'device': torch.device("cuda:4" if torch.cuda.is_available() else "cpu"),
+        'model_save_file': "checkpoints/",
+        'device': torch.device("cuda:5" if torch.cuda.is_available() else "cpu"),
         # 'device': 'cpu',
         'load_model': False,
         'save_model': True,
@@ -25,6 +25,7 @@ class Config:
         'use_mask': True,
         'use_role': False,
         'use_fgm': False,
+        'use_loss': True
     }
     data_args: dict = {
         'data_path': 'data',
@@ -48,4 +49,15 @@ class Config:
         'gat_alpha': 0.2,
     }
     target_cols=['love', 'joy', 'fright', 'anger', 'fear', 'sorrow']
+    device_args: dict = {
+        'gpus': [5,6],
+        'use_dp': False,
+        'use_ddp': False,
+        'use_deepspeed': False,
+        'world_size': 4, # gpus几张卡就分成几份
+
+    }
+    checkpoint = {
+        'init_checkpoint': '', # 路径
+    }
 

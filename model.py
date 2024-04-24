@@ -13,6 +13,13 @@ import os
 import time
 import logging
 
+import torch.distributed as dist
+from utils import cleanup
+
+args = Config()
+gpus = args.device_args['gpus']
+# os.environ['CUDA_VISIBLE_DEVICE'] = ','.join(map(str, gpus))
+
 # 模型构建
 # 对给定模型列表中的参数进行Xavier均匀初始化，以提升模型的训练效果和收敛速度。
 def init_params(module_lst):
@@ -27,7 +34,7 @@ class IQIYModelLite(nn.Module):
     def __init__(self, args: Config):
         super().__init__()
         self.args = args
-        self.device = args.model_args['device']
+        self.device = gpus[0]
         config = AutoConfig.from_pretrained(args.model_args['model_name'])
         config.update({"output_hidden_states": True,
                         "hidden_dropout_prob": 0.0,
@@ -122,7 +129,7 @@ class MyModel(nn.Module):
         self.model = model
         self.tokenizer = tokenizer
         self.args = args
-        self.device = args.model_args['device']
+        self.device = gpus[0]
         self.target_cols = args.target_cols
         self.adv = args.model_args['use_fgm']
         
@@ -162,12 +169,12 @@ class MyModel(nn.Module):
                                      mask_pos=mask_pos,
                                      role_pos=role_pos,)
                 for col in self.target_cols:
-                    out2 = logists[col].squeeze(1)
+                    out2 = logists[col].squeeze(1)*3.0  # 这个3要乘回去
                     test_pred[col].extend(out2.cpu().numpy().tolist())
                     
         return test_pred
     
-    def test(self, valid_loader, criterion_reg, criterion_cls, epoch):
+    def test(self, valid_loader, criterion_reg, criterion_cls, myloss, epoch):
         self.model.train()
         tic_train = time.time()
         losses = []
@@ -194,6 +201,11 @@ class MyModel(nn.Module):
             loss_sorrow_reg = torch.sqrt(criterion_reg(logists['sorrow'], batch['sorrow'].view(-1, 1).to(self.device)))
             reg_loss = loss_love_reg + loss_joy_reg + loss_fright_reg + loss_anger_reg + loss_fear_reg + loss_sorrow_reg
 
+            if self.args.model_args['use_loss']:
+                    loss_anger_joy = myloss(logists['joy'], logists['anger'])
+                    loss_sorrow_joy = myloss(logists['joy'], logists['sorrow'])
+                    reg_loss = reg_loss + loss_anger_joy + loss_sorrow_joy
+
             loss = reg_loss
             losses.append(loss.item())
             
@@ -201,16 +213,22 @@ class MyModel(nn.Module):
                 print("epoch: {}, step: {}, loss: {:.15f}, speed: {:.2f} step/s".format(epoch, step, np.mean(losses), step / (time.time() - tic_train)))
                 # logging.info("epoch: {}, step: {}, loss: {:.15f}, speed: {:.2f} step/s".format(epoch, step, np.mean(losses), step / (time.time() - tic_train)))
     
-    def train(self, train_loader, valid_loader, criterion_reg, criterion_cls, optimizer, scheduler, fgm: FGM):
+    def train(self, rank, train_loader, valid_loader, criterion_reg, criterion_cls, myloss, optimizer, scheduler, fgm: FGM):
         self.model.train()
         global_step = 0
         tic_train = time.time()
         log_steps = 100
+        
+        if self.args.device_args['use_ddp']:
+            # ddp_loss是为了收集不同进程返回的loss，
+            # 以便我们记录并展示所有进程的平均loss，来看loss的下降趋势
+            ddp_loss = torch.zeros(1).to(rank)
+
         for epoch in range(self.args.model_args['epoch']):
             losses = []
             if self.adv: # 加入对抗训练
                 losses_adv = [] 
-            for step, batch in tqdm(enumerate(train_loader)):
+            for step, batch in enumerate(tqdm(train_loader)):
                 b_input_ids = batch['input_ids'].to(self.device)
                 attention_mask = batch["attention_mask"].to(self.device)
                 texts = batch["texts"]
@@ -231,6 +249,11 @@ class MyModel(nn.Module):
                 loss_fear_reg = torch.sqrt(criterion_reg(logists['fear'], batch['fear'].view(-1, 1).to(self.device)))
                 loss_sorrow_reg = torch.sqrt(criterion_reg(logists['sorrow'], batch['sorrow'].view(-1, 1).to(self.device)))
                 reg_loss = loss_love_reg + loss_joy_reg + loss_fright_reg + loss_anger_reg + loss_fear_reg + loss_sorrow_reg
+
+                if self.args.model_args['use_loss']:
+                    loss_anger_joy = myloss(logists['joy'], logists['anger'])
+                    loss_sorrow_joy = myloss(logists['joy'], logists['sorrow'])
+                    reg_loss = reg_loss + loss_anger_joy + loss_sorrow_joy
 
                 loss = reg_loss
                 losses.append(loss.item())
@@ -257,17 +280,38 @@ class MyModel(nn.Module):
                 scheduler.step()
                 optimizer.zero_grad()
 
+                if self.args.device_args['use_ddp']:
+                    ddp_loss[0] += loss.item()
+
                 global_step += 1
                 if global_step % log_steps == 0:
-                    print("global step {}, epoch: {}, batch: {}, loss: {:.15f}, speed: {:.2f} step/s, lr: {:.10f}"
-                        .format(global_step, epoch, step, np.mean(losses), global_step / (time.time() - tic_train), 
-                            float(scheduler.get_last_lr()[0])))
+                    batch_loss = -1
+                    if self.args.device_args['use_ddp']:
+                        dist.all_reduce(ddp_loss, op=dist.ReduceOp.SUM)
+                        size = dist.get_world_size()
+                        batch_loss = ddp_loss[0].item() / (10 * size)  # 求平均
+                        ddp_loss = torch.zeros(1).to(rank)
+
+                        print("global step {}, epoch: {}, batch: {}, loss: {:.6f}, batch_loss: {:.6f}, speed: {:.2f} step/s, lr: {:.10f}"
+                            .format(global_step, epoch, step, np.mean(losses), batch_loss, global_step / (time.time() - tic_train), 
+                                float(scheduler.get_last_lr()[0])))
+                    else:
+                        print("global step {}, epoch: {}, batch: {}, loss: {:.6f}, speed: {:.2f} step/s, lr: {:.10f}"
+                            .format(global_step, epoch, step, np.mean(losses), global_step / (time.time() - tic_train), 
+                                float(scheduler.get_last_lr()[0])))
 
                     # logging.info("global step {}, epoch: {}, batch: {}, loss: {:.15f}, speed: {:.2f} step/s, lr: {:.10f}"
                         # .format(global_step, epoch, step, np.mean(losses), global_step / (time.time() - tic_train), 
                         #     float(scheduler.get_last_lr()[0])))
-        
-            self.test(valid_loader, criterion_reg, criterion_cls, epoch)
+
+            self.test(valid_loader, criterion_reg, criterion_cls, myloss, epoch)
+            if self.args.device_args['use_ddp']:
+                # 等待所有进程一轮训练结束，类似于join
+                dist.barrier()
+
+        if self.args.device_args['use_ddp']:
+            # 训练结束后关闭分布式环境
+            cleanup()
 
     
     def save_pth(self):

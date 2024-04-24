@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Dataset
 import math
@@ -157,7 +158,7 @@ def create_graph(text, embeddings):
         edge_index = edge_index.t().contiguous()  
     # 考虑没有边的情况
     except:
-        pass
+        # pass
         # print(len(text))
         # print(text)
         edge_index = torch.tensor([[], []], dtype=torch.long)
@@ -175,3 +176,32 @@ def draw_graph(edge_index, name=None):
     plt.figure(figsize=(8, 8)) # 设置画布的大小
     nx.draw_networkx(G)
     plt.show()
+
+# Loss构建
+class JoyOtherLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, joy, other):
+        loss = torch.clamp(abs(joy * other), min=0)
+        return torch.mean(loss)
+    
+
+# DDP的构建
+import os
+import torch.distributed as dist
+import torch
+
+def dist_setup(global_rank, world_size):
+    # 配置Master Node的信息
+    os.environ['MASTER_ADDR'] = '172.31.76.134'
+    os.environ['MASTER_PORT'] = '6756'
+
+    # # 根据local_rank来设定当前使用哪块GPU
+    # torch.cuda.set_device(global_rank)
+    # 初始化Process Group
+    # 关于init_method, 参数详见https://pytorch.org/docs/stable/distributed.html#initialization
+    dist.init_process_group(backend="nccl", init_method='env://', rank=global_rank, world_size=world_size)
+
+def cleanup():
+    dist.destroy_process_group()
