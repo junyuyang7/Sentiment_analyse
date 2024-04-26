@@ -88,7 +88,7 @@ def main(rank, world_size, mode: str):
         num_training_steps=total_steps
         )
 
-    # criterion = nn.BCEWithLogitsLoss().to(device)
+    # criterion_reg = nn.BCEWithLogitsLoss().to(gpus[0])
     # criterion = nn.L1Loss().to(device)
     criterion_reg = nn.MSELoss(reduction="mean").to(gpus[0])
     criterion_cls = nn.CrossEntropyLoss().to(gpus[0])

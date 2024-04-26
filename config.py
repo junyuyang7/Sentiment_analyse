@@ -5,10 +5,10 @@ class Config:
     model_args: dict = {
         'num_labels': 6,
         'model_name': 'models/chinese-roberta-wwm-ext',
-        'epoch': 2,
+        'epoch': 4,
         'weight_decay': 0.005,
         'warmup_proportion': 0.0,
-        'batch_size': 32,
+        'batch_size': 48,
         'lr': 2e-5,
         'warm_up_ratio': 0,
         'max_len': 256,
@@ -19,21 +19,21 @@ class Config:
         'load_model': False,
         'save_model': True,
         'n_class': 1,
-        'use_gat': True,
+        'use_gat': False,
         'use_cls': False,
         'use_mlp': False,
         'use_mask': True,
         'use_role': False,
         'use_fgm': False,
-        'use_loss': True
+        'use_loss': False
     }
     data_args: dict = {
         'data_path': 'data',
         'data_save_file': 'data_after_process/',
         'train_fill_path': 'data/train_filled.csv',
         'test_fill_path': 'data/test_filled.csv',
-        'train_path': 'data_after_process/train_content_prompt2.csv',
-        'test_path': 'data_after_process/test_content_prompt2.csv',
+        'train_path': 'data_after_process/train_character_prompt2.csv',
+        'test_path': 'data_after_process/test_character_prompt2.csv',
         'output': 'result/',
         'prompt_name': 'prompt2'
     }

@@ -170,6 +170,7 @@ class MyModel(nn.Module):
                                      role_pos=role_pos,)
                 for col in self.target_cols:
                     out2 = logists[col].squeeze(1)*3.0  # 这个3要乘回去
+                    out2 = torch.clamp(out2, min=0, max=3)
                     test_pred[col].extend(out2.cpu().numpy().tolist())
                     
         return test_pred
@@ -179,7 +180,7 @@ class MyModel(nn.Module):
         tic_train = time.time()
         losses = []
         log_steps = 100
-        for step, batch in tqdm(enumerate(valid_loader)):
+        for step, batch in enumerate(tqdm(valid_loader)):
             b_input_ids = batch['input_ids'].to(self.device)
             attention_mask = batch["attention_mask"].to(self.device)
             texts = batch["texts"]
@@ -193,12 +194,12 @@ class MyModel(nn.Module):
                                         role_pos=role_pos,)
 
             # Reg_loss
-            loss_love_reg = torch.sqrt(criterion_reg(logists['love'], batch['love'].view(-1, 1).to(self.device)))
-            loss_joy_reg = torch.sqrt(criterion_reg(logists['joy'], batch['joy'].view(-1, 1).to(self.device)))
-            loss_fright_reg = torch.sqrt(criterion_reg(logists['fright'], batch['fright'].view(-1, 1).to(self.device)))
-            loss_anger_reg = torch.sqrt(criterion_reg(logists['anger'], batch['anger'].view(-1, 1).to(self.device)))
-            loss_fear_reg = torch.sqrt(criterion_reg(logists['fear'], batch['fear'].view(-1, 1).to(self.device)))
-            loss_sorrow_reg = torch.sqrt(criterion_reg(logists['sorrow'], batch['sorrow'].view(-1, 1).to(self.device)))
+            loss_love_reg = criterion_reg(logists['love'], batch['love'].view(-1, 1).to(self.device))
+            loss_joy_reg = criterion_reg(logists['joy'], batch['joy'].view(-1, 1).to(self.device))
+            loss_fright_reg = criterion_reg(logists['fright'], batch['fright'].view(-1, 1).to(self.device))
+            loss_anger_reg = criterion_reg(logists['anger'], batch['anger'].view(-1, 1).to(self.device))
+            loss_fear_reg = criterion_reg(logists['fear'], batch['fear'].view(-1, 1).to(self.device))
+            loss_sorrow_reg = criterion_reg(logists['sorrow'], batch['sorrow'].view(-1, 1).to(self.device))
             reg_loss = loss_love_reg + loss_joy_reg + loss_fright_reg + loss_anger_reg + loss_fear_reg + loss_sorrow_reg
 
             if self.args.model_args['use_loss']:
@@ -242,12 +243,12 @@ class MyModel(nn.Module):
                                      role_pos=role_pos,)
 
                 # Reg_loss
-                loss_love_reg = torch.sqrt(criterion_reg(logists['love'], batch['love'].view(-1, 1).to(self.device)))
-                loss_joy_reg = torch.sqrt(criterion_reg(logists['joy'], batch['joy'].view(-1, 1).to(self.device)))
-                loss_fright_reg = torch.sqrt(criterion_reg(logists['fright'], batch['fright'].view(-1, 1).to(self.device)))
-                loss_anger_reg = torch.sqrt(criterion_reg(logists['anger'], batch['anger'].view(-1, 1).to(self.device)))
-                loss_fear_reg = torch.sqrt(criterion_reg(logists['fear'], batch['fear'].view(-1, 1).to(self.device)))
-                loss_sorrow_reg = torch.sqrt(criterion_reg(logists['sorrow'], batch['sorrow'].view(-1, 1).to(self.device)))
+                loss_love_reg = criterion_reg(logists['love'], batch['love'].view(-1, 1).to(self.device))
+                loss_joy_reg = criterion_reg(logists['joy'], batch['joy'].view(-1, 1).to(self.device))
+                loss_fright_reg = criterion_reg(logists['fright'], batch['fright'].view(-1, 1).to(self.device))
+                loss_anger_reg = criterion_reg(logists['anger'], batch['anger'].view(-1, 1).to(self.device))
+                loss_fear_reg = criterion_reg(logists['fear'], batch['fear'].view(-1, 1).to(self.device))
+                loss_sorrow_reg = criterion_reg(logists['sorrow'], batch['sorrow'].view(-1, 1).to(self.device))
                 reg_loss = loss_love_reg + loss_joy_reg + loss_fright_reg + loss_anger_reg + loss_fear_reg + loss_sorrow_reg
 
                 if self.args.model_args['use_loss']:
